@@ -12,7 +12,14 @@ def findAlphabeticallyLastWord(text):
     You might find max() and list comprehensions handy here.
     """
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    import re
+    if not text:
+        return ''
+    lines = re.split(r'\s+', text)
+    if not lines:
+        return ''
+    lines.sort()
+    return lines[-1]
     # END_YOUR_CODE
 
 ############################################################
@@ -24,7 +31,7 @@ def euclideanDistance(loc1, loc2):
     are pairs of numbers (e.g., (3, 5)).
     """
     # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return math.sqrt(math.pow(loc1[0] - loc2[0], 2) + math.pow(loc1[1]-loc2[1], 2))
     # END_YOUR_CODE
 
 ############################################################
@@ -50,7 +57,32 @@ def mutateSentences(sentence):
                 (reordered versions of this list are allowed)
     """
     # BEGIN_YOUR_CODE (our solution is 20 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    if sentence is None or sentence == "":
+        return []
+    import re
+    in_tokens = filter(None, re.split(r'\s+', sentence))
+    next_map = {}
+    for i in range(len(in_tokens)-1):
+        token = in_tokens[i]
+        if not token in next_map:
+            next_map[token] = set()
+        next_map[token].add(in_tokens[i+1])
+    def recurseSol(cur, last, n, visited, result):
+        if cur in visited:
+            return
+        visited.add(cur)
+        if n == 0:
+            result.append(cur)
+            return
+        for token in next_map.get(last, []):
+            recurseSol(cur + ' ' + token, token, n-1, visited, result)
+    visited = set()
+    result = []
+    for token in set(in_tokens):
+        recurseSol(token, token, len(in_tokens)-1, visited, result)
+    # print sentence
+    # print result
+    return result
     # END_YOUR_CODE
 
 ############################################################
@@ -64,7 +96,8 @@ def sparseVectorDotProduct(v1, v2):
     This function will be useful later for linear classifiers.
     """
     # BEGIN_YOUR_CODE (our solution is 4 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    keys = v1.keys() if len(v1) < len(v2) else v2.keys()
+    return sum([v1[i]*v2[i] for i in keys])
     # END_YOUR_CODE
 
 ############################################################
@@ -76,7 +109,8 @@ def incrementSparseVector(v1, scale, v2):
     This function will be useful later for linear classifiers.
     """
     # BEGIN_YOUR_CODE (our solution is 2 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    for i in set(v1.keys() + v2.keys()):
+        v1[i] += scale*v2[i]
     # END_YOUR_CODE
 
 ############################################################
@@ -89,7 +123,13 @@ def findSingletonWords(text):
     You might find it useful to use collections.defaultdict(int).
     """
     # BEGIN_YOUR_CODE (our solution is 4 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    if text is None or text == "":
+        return set()
+    import re
+    counter = collections.defaultdict(int)
+    for token in re.split(r'\s+', text):
+        counter[token]+=1
+    return set([key for key, value in counter.items() if value==1])
     # END_YOUR_CODE
 
 ############################################################
@@ -105,5 +145,21 @@ def computeLongestPalindromeLength(text):
     You should first define a recurrence before you start coding.
     """
     # BEGIN_YOUR_CODE (our solution is 19 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    if text is None or text == "":
+        return 0
+    n = len(text)
+    if n <= 1:
+        return n
+    dp = [[0]*n for _ in range(n)]
+    for i in range(n):
+        dp[i][i] = 1
+        if i != n-1:
+            dp[i][i+1] = (2 if text[i] == text[i+1] else 1)
+    for  j in range(2, n):
+        for i in range(n-j):
+            dp[i][i+j] = max(
+                dp[i+1][i+j],
+                dp[i][i+j-1],
+                dp[i+1][i+j-1] + (2 if text[i] == text[i+j] else 0))
+    return dp[0][n-1]
     # END_YOUR_CODE

@@ -32,10 +32,26 @@ grader.addBasicPart('3a-0-basic', lambda :
 grader.addBasicPart('3a-1-basic', lambda : grader.requireIsEqual('sun', submission.findAlphabeticallyLastWord('cat sun dog')), description='simple test case')
 grader.addBasicPart('3a-2-basic', lambda : grader.requireIsEqual('99999', submission.findAlphabeticallyLastWord(' '.join(str(x) for x in range(100000)))), description='big test case')
 
+grader.addBasicPart('3a-0-manual', lambda :
+        grader.requireIsEqual('', submission.findAlphabeticallyLastWord('')),
+        description='simple test case')
+grader.addBasicPart('3a-1-manual', lambda :
+        grader.requireIsEqual('', submission.findAlphabeticallyLastWord(' ')),
+        description='simple test case')
+grader.addBasicPart('3a-2-manual', lambda :
+        grader.requireIsEqual('word', submission.findAlphabeticallyLastWord('more  word    some')),
+        description='')
+grader.addBasicPart('3a-3-manual', lambda :
+        grader.requireIsEqual('word2', submission.findAlphabeticallyLastWord('word word2')),
+        description='simple test case')
+
+
 ############################################################
 # Problem 3b: euclideanDistance
 
 grader.addBasicPart('3b-0-basic', lambda : grader.requireIsEqual(5, submission.euclideanDistance((1, 5), (4, 1))), description='simple test case')
+grader.addBasicPart('3b-1-basic', lambda : grader.requireIsEqual(0, submission.euclideanDistance((0, 0), (0, 0))), description='simple test case')
+grader.addBasicPart('3b-2-basic', lambda : grader.requireIsEqual(5000000, submission.euclideanDistance((0, 0), (3000000, 4000000))), description='simple test case')
 
 def test():
     random.seed(42)
@@ -51,6 +67,9 @@ grader.addHiddenPart('3b-1-hidden', test, maxPoints=2, description='100 random t
 # Problem 3c: mutateSentences
 
 def test():
+    grader.requireIsEqual(sorted(['a']), sorted(submission.mutateSentences('a')))
+    grader.requireIsEqual(sorted([]), sorted(submission.mutateSentences('')))
+    grader.requireIsEqual(sorted([]), sorted(submission.mutateSentences('  ')))
     grader.requireIsEqual(sorted(['a a a a a']), sorted(submission.mutateSentences('a a a a a')))
     grader.requireIsEqual(sorted(['the cat']), sorted(submission.mutateSentences('the cat')))
     grader.requireIsEqual(sorted(['and the cat and the', 'the cat and the mouse', 'the cat and the cat', 'cat and the cat and']), sorted(submission.mutateSentences('the cat and the mouse')))
@@ -118,6 +137,9 @@ grader.addHiddenPart('3e-1-hidden', test, maxPoints=2, description='random trial
 # Problem 3f: findSingletonWords
 
 def test3f():
+    grader.requireIsEqual(set([]), submission.findSingletonWords(''))
+    grader.requireIsEqual(set([]), submission.findSingletonWords(None))
+    grader.requireIsEqual(set(['quick', 'brown', 'jumps', 'over', 'lazy']), submission.findSingletonWords('the quick brown fox jumps over the lazy fox'))
     grader.requireIsEqual(set(['quick', 'brown', 'jumps', 'over', 'lazy']), submission.findSingletonWords('the quick brown fox jumps over the lazy fox'))
 grader.addBasicPart('3f-0-basic', test3f, description='simple test')
 
@@ -134,11 +156,15 @@ grader.addHiddenPart('3f-2-hidden', lambda : test3f(10000, 100), maxPoints=1, de
 
 def test3g():
     # Test around bases cases
+    grader.requireIsEqual(0, submission.computeLongestPalindromeLength(None))
     grader.requireIsEqual(0, submission.computeLongestPalindromeLength(""))
     grader.requireIsEqual(1, submission.computeLongestPalindromeLength("a"))
     grader.requireIsEqual(2, submission.computeLongestPalindromeLength("aa"))
     grader.requireIsEqual(1, submission.computeLongestPalindromeLength("ab"))
+    grader.requireIsEqual(3, submission.computeLongestPalindromeLength("aba"))
+    grader.requireIsEqual(1, submission.computeLongestPalindromeLength("abc"))
     grader.requireIsEqual(3, submission.computeLongestPalindromeLength("animal"))
+    grader.requireIsEqual(9, submission.computeLongestPalindromeLength("abbbbbbcba"))
 grader.addBasicPart('3g-0-basic', test3g, description='simple test')
 
 def test3g(numChars, length):
