@@ -22,6 +22,8 @@ def extractWordFeatures(x):
     Example: "I am what I am" --> {'I': 2, 'am': 2, 'what': 1}
     """
     # BEGIN_YOUR_CODE (our solution is 4 lines of code, but don't worry if you deviate from this)
+    if x is None or len(x) == 0:
+        return {}
     res = {}
     for w in x.split():
         res[w] = res.get(w, 0) + 1
@@ -79,7 +81,11 @@ def generateDataset(numExamples, weights):
         # BEGIN_YOUR_CODE (our solution is 2 lines of code, but don't worry if you deviate from this)
         words = random.sample(weights.keys(), random.randint(1, len(weights)))
         phi = {w:random.randint(1, 10) for w in words}
-        y = (-1 if dotProduct(weights, phi) < 0 else 1)
+        score = dotProduct(weights, phi)
+        if score == 0:
+            print "Found 0 score ", weights
+            return generateExample()
+        y = (-1 if  score < 0 else 1)
         # END_YOUR_CODE
         return (phi, y)
     return [generateExample() for _ in range(numExamples)]
