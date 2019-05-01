@@ -11,13 +11,13 @@ class CounterexampleMDP(util.MDP):
     # Return a value of any type capturing the start state of the MDP.
     def startState(self):
         # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        return 1
         # END_YOUR_CODE
 
     # Return a list of strings representing actions possible from |state|.
     def actions(self, state):
         # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        return [0]
         # END_YOUR_CODE
 
     # Given a |state| and |action|, return a list of (newState, prob, reward) tuples
@@ -25,13 +25,15 @@ class CounterexampleMDP(util.MDP):
     # Remember that if |state| is an end state, you should return an empty list [].
     def succAndProbReward(self, state, action):
         # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        if state != 1:
+            return []
+        return [(0, 0.8, 10),(2, 0.2, 100)];
         # END_YOUR_CODE
 
     # Set the discount factor (float or integer) for your counterexample MDP.
     def discount(self):
         # BEGIN_YOUR_CODE (our solution is 1 line of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        return 1
         # END_YOUR_CODE
 
 ############################################################
@@ -79,7 +81,61 @@ class BlackjackMDP(util.MDP):
     #   don't include that state in the list returned by succAndProbReward.
     def succAndProbReward(self, state, action):
         # BEGIN_YOUR_CODE (our solution is 53 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # print state, action
+        def takeCard(counts, index):
+            counts = list(counts)
+            counts[index] -= 1
+            return tuple(counts)
+
+        if state is None or state[2] is None:
+            return []
+        if action == 'Quit':
+            return [((state[0], None, None), 1, state[0])]
+
+        assert sum(state[2]) > 0
+
+        if action == 'Peek':
+            if state[1] != None:
+                return []
+            totalCount = sum(state[2])
+            res = []
+            counts = state[2]
+            for i in range(len(counts)):
+                if counts[i] == 0:
+                    continue
+                prob = counts[i]/float(totalCount)
+                res.append(((state[0], i, counts), prob, -self.peekCost))
+            return res
+
+        # if action == 'Take':
+        if state[1] is not None:
+            selectedInd = state[1]
+            newCounts = takeCard(state[2], selectedInd)
+            newSum = state[0] + self.cardValues[selectedInd]
+            if newSum > self.threshold:
+                return [((newSum, None, None), 1, 0)]
+            if sum(newCounts) == 0:
+                return [((newSum, None, None), 1, newSum)]
+            return [((newSum, None, newCounts), 1, 0)]
+
+        totalCount = sum(state[2])
+        res = []
+        counts = state[2]
+        for i in range(len(counts)):
+            if counts[i] == 0:
+                continue
+            prob = counts[i]/float(totalCount)
+            newSum = state[0] + self.cardValues[i]
+            newCounts = takeCard(counts, i)
+            if newSum > self.threshold:  # busted
+                res.append(((newSum, None, None), prob, 0))
+            elif sum(newCounts) == 0:  # out of cards
+                res.append(((newSum, None, None), prob, newSum))
+            else:
+                res.append(((newSum, None, newCounts), prob, 0))
+        return res
+        
+            
         # END_YOUR_CODE
 
     def discount(self):
@@ -94,7 +150,7 @@ def peekingMDP():
     optimal action at least 10% of the time.
     """
     # BEGIN_YOUR_CODE (our solution is 2 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    return BlackjackMDP([1, 2, 3, 21], 5, 20, 1)
     # END_YOUR_CODE
 
 ############################################################
@@ -142,7 +198,11 @@ class QLearningAlgorithm(util.RLAlgorithm):
     # self.getQ() to compute the current estimate of the parameters.
     def incorporateFeedback(self, state, action, reward, newState):
         # BEGIN_YOUR_CODE (our solution is 12 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        vNewState = max(self.getQ(newState, action) for action in self.actions(newState))
+        err = self.getQ(state, action) - reward - self.discount*vNewState
+        diff = self.getStepSize()*err
+        for f, v in self.featureExtractor(state, action):
+            self.weights[f] = self.weights[f] - diff*v
         # END_YOUR_CODE
 
 # Return a single-element list containing a binary (indicator) feature
@@ -166,7 +226,24 @@ def simulate_QL_over_MDP(mdp, featureExtractor):
     # that you add a few lines of code here to run value iteration, simulate Q-learning on the MDP,
     # and then print some stats comparing the policies learned by these two approaches.
     # BEGIN_YOUR_CODE
-    pass
+    rl = QLearningAlgorithm(actions=mdp.actions,
+        discount=mdp.discount(),
+        featureExtractor=featureExtractor)
+    util.simulate(mdp, rl, numTrials=30000)
+    viter = ValueIteration()
+    viter.solve(mdp, .001)
+
+    rl.explorationProb= 0
+
+    total = 0
+    neq = 0
+    for state in viter.pi:
+        if viter.pi[state] != rl.getAction(state):
+            # print state, viter.pi[state], rl.getAction(state)
+            neq += 1
+    
+    print "Total:", len(viter.pi), ", neq:", neq, ", frac_neq:", neq/float(len(viter.pi))
+
     # END_YOUR_CODE
 
 
@@ -183,10 +260,19 @@ def simulate_QL_over_MDP(mdp, featureExtractor):
 # -- Indicators for the action and the number of cards remaining with each face value (len(counts) features).
 #       Note: only add these features if the deck is not None.
 def blackjackFeatureExtractor(state, action):
+    if state == None:
+        return []
     total, nextCard, counts = state
 
     # BEGIN_YOUR_CODE (our solution is 8 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    features= []
+    features.append(((action, state[0]), 1))
+    counts = state[2]
+    if counts is not None:
+        features.append(((action, tuple(1 if v > 0 else 0 for v in counts)), 1))
+        for i in range(len(counts)):
+            features.append(((action, i, counts[i]), 1))
+    return features
     # END_YOUR_CODE
 
 ############################################################
@@ -204,6 +290,19 @@ def compare_changed_MDP(original_mdp, modified_mdp, featureExtractor):
     # Consider adding some code here to simulate two different policies over the modified MDP
     # and compare the rewards generated by each.
     # BEGIN_YOUR_CODE
-    pass
+    viter = ValueIteration()
+    viter.solve(original_mdp)
+
+    fixed_rl = util.FixedRLAlgorithm(viter.pi)
+    print "Expected reward value iteration: ", \
+        sum(util.simulate(modified_mdp, fixed_rl, numTrials=30000))/30000.0
+
+    ql = QLearningAlgorithm(
+        actions=modified_mdp.actions,
+        discount=modified_mdp.discount(),
+        featureExtractor=featureExtractor)
+    print "Expected reward q-learn: ", \
+            sum(util.simulate(modified_mdp, ql, numTrials=30000))/30000.0
+
     # END_YOUR_CODE
 

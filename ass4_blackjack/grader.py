@@ -50,6 +50,8 @@ def test2a():
     mdp.computeStates()
     algorithm.solve(mdp, .001)
     newVal = algorithm.V[mdp.startState()]
+    print newVal, ">", originalVal
+    assert newVal > originalVal, "original val:"+originalVal + "newVal:"+newVal
 grader.addHiddenPart('2a-hidden', test2a, 3, description="Hidden test for CounterexampleMDP. Ensure that V[startState] is greater after noise is added.")
 
 grader.addManualPart('2b', 3, description="Written question: single-pass algorithm for node values in acyclic MDP")
@@ -106,6 +108,7 @@ def test3b():
     grader.requireIsEqual(mdp.threshold, 20)
     grader.requireIsEqual(mdp.peekCost, 1)
     f = len([a for a in vi.pi.values() if a == 'Peek']) / float(len(vi.pi.values()))
+    print "fraction of peeks", f
     grader.requireIsGreaterThan(.1, f)
     # Feel free to uncomment these lines if you'd like to print out states/actions
     # for k, v in vi.pi.iteritems():
@@ -161,6 +164,8 @@ grader.addManualPart('4b', 4, description="Written question: policy comparison f
 def run4bHelper():
     submission.simulate_QL_over_MDP(submission.smallMDP, submission.identityFeatureExtractor)
     submission.simulate_QL_over_MDP(submission.largeMDP, submission.identityFeatureExtractor)
+    submission.simulate_QL_over_MDP(submission.smallMDP, submission.blackjackFeatureExtractor)
+    submission.simulate_QL_over_MDP(submission.largeMDP, submission.blackjackFeatureExtractor)
 grader.addBasicPart('4b-helper', run4bHelper, 0, maxSeconds=60, description="Helper function to run Q-learning simulations for question 4b.")
 
 def test4c():
