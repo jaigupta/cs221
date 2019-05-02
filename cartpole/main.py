@@ -20,15 +20,15 @@ def CreateKerasModel(total_features):
 
 class QLearning(object):
     def __init__(self, num_features, actions):
-        total_features=num_features*len(actions)
+        total_features=num_features*len(actions) + 1
         self.weights = np.zeros(total_features)
         self.actions = actions
-        self.discount = 0.9
+        self.discount = 0.7
         self.gamma = 0.4
         self.epsilon = 0.2
         self.model = CreateKerasModel(total_features)
         self.optimizer = tf.optimizers.Adam()
-        self.batch_size = 1000
+        self.batch_size = 100
         self.x_train = []
         self.y_train = []
 
@@ -37,11 +37,11 @@ class QLearning(object):
             return self.actions[int(random.random()*2)]
         scores = []
         for a in self.actions:
-            scores.append((self.getQ(state, a), a))
+            scores.append((self.getQ(step, state, a), a))
         return max(scores)[1]
 
-    def createFeatures(self, state, action):
-        features=[]
+    def createFeatures(self, step, state, action):
+        features=[step]
         for ai in self.actions:
             if ai == action:
                 features = np.append(features, state)
@@ -50,9 +50,9 @@ class QLearning(object):
         return features
 
 
-    def getQ(self, state, action):
-        features = self.createFeatures(state, action)
-        return self.model(tf.stack([features, features]), training=False)[0]
+    def getQ(self, step, state, action):
+        features = self.createFeatures(step, state, action)
+        return self.model(tf.stack([features, features]), training=False).numpy()[0][0]
 
         return np.dot(self.weights, features)
 
@@ -60,22 +60,30 @@ class QLearning(object):
         return  self.gamma
 
     def getEpsilon(self, step):
-        return self.epsilon/(1+math.sqrt(step/100.0))
+        return self.epsilon/(1+math.sqrt(step/10.0))
 
     def takeFeedback(self, step, state, action, reward, newState):
-        vNewState = max(self.getQ(newState, ai) for ai in self.actions)
-        err = self.getQ(state, action) - reward - self.discount*vNewState
-        self.weights = self.weights - self.gamma * err * self.createFeatures(state, action)
+        vNewState = max(self.getQ(step, newState, ai) for ai in self.actions)
+        err = self.getQ(step, state, action) - reward - self.discount*vNewState
+        self.weights = self.weights - self.gamma * err * self.createFeatures(step, state, action)
 
-        self.x_train.append(self.createFeatures(state, action))
-        self.y_train.append(reward+self.discount*vNewState)
+        math.abs = abs
+        cart_pos_reward = math.abs(state[0]) - math.abs(newState[0])
+        cart_velocity_reward = math.abs(state[1]) - math.abs(newState[1])
+        pole_angle_reward = math.abs(state[2]) - math.abs(newState[2])
+        pole_velocity_reward = math.abs(state[3]) - math.abs(newState[3])
+        reward = (0.05*cart_pos_reward+0.005*cart_velocity_reward+pole_angle_reward+0.005*pole_velocity_reward)
+
+        self.x_train.append(self.createFeatures(step, state, action))
+        self.y_train.append(reward+self.discount*max(vNewState, 0))
         if len(self.x_train) >= self.batch_size:
-            print("Evaluating")
+            # print("Evaluating", len(self.x_train))
             self.x_train = tf.stack(self.x_train)
             self.y_train = tf.stack(self.y_train)
             with tf.GradientTape() as tape:
                 pred = self.model(self.x_train, training=True)
                 loss = tf.losses.mean_squared_error(pred, self.y_train)
+                print("Sum pred:", sum(pred.numpy()), "actual: ", sum(self.y_train.numpy()))
             grads = tape.gradient(loss, self.model.trainable_variables)
             self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
             self.x_train = []
