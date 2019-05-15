@@ -1,0 +1,23 @@
+minUnits 3
+maxUnits 6
+
+
+register Spr2020
+register Sum2020
+register Aut2020
+register Win2020
+
+taken CS124
+taken CS229
+taken CS107
+taken CS103
+taken CS106X
+taken CS106B
+taken CS210A
+
+request CS399        # all (1, 9)
+request CS221        # Aut,Sum (3,4)
+request CS224N       # Aut (3, 4)
+request CS224S       # Spr (2, 4) cannot fulfill due to depedency on cs221 and cs224n
+request CS210B  in Spr2020 after CS221 # Spr(3, 4) cannot fulfill due to dependency on cs221
+request CS223A       # Win (3)

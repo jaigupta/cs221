@@ -187,7 +187,8 @@ class MinimaxAgent(MultiAgentSearchAgent):
         chosenIndices = [index for index in range(len(scores)) if scores[index] == chosenScore]
         chosenIndex = random.choice(chosenIndices) # Pick randomly among the best
         return (chosenScore, legalMoves[chosenIndex])
-    v = Vnminimax(gameState, self.depth, 0)
+    # print self.index
+    v = Vnminimax(gameState, self.depth, self.index)
     # print(v)
     return v[1]
 
@@ -249,7 +250,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
                     break
             return (bestV, bestAction)
 
-    v = Vnminimax(gameState, self.depth, 0, float('-inf'), float('inf'))
+    # print self.index
+
+    v = Vnminimax(gameState, self.depth, self.index, float('-inf'), float('inf'))
     print(v)
     return v[1]
     # END_YOUR_CODE
@@ -290,67 +293,263 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         # Choose one of the best actions
         scores = [Vnminimax(state.generateSuccessor(player, action), nextDepth, nextPlayer)[0] for action in legalMoves]
 
-        if player == 0:
-            chosenScore = max(scores)
-            chosenMoves = [legalMoves[index] for index in range(len(scores)) if scores[index] == chosenScore]
-        else:
+        if player != 0:
             chosenScore = sum(scores)/float(len(scores))
             chosenMoves = legalMoves
-        return (chosenScore, random.choice(chosenMoves))
-    v = Vnminimax(gameState, self.depth, 0)
+            return (chosenScore, random.choice(chosenMoves))
+
+        chosenScore = max(scores)
+        chosenMoves = [legalMoves[index] for index in range(len(scores)) if scores[index] == chosenScore]
+        curDir = state.data.agentStates[0].getDirection()
+        if curDir in chosenMoves and curDir in [Directions.NORTH, Directions.SOUTH]:
+            return (chosenScore, curDir)
+        for move in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST, Directions.STOP]:
+            if move not in chosenMoves:
+                continue
+            return (chosenScore, move)
+    # print self.index, "index"
+    v = Vnminimax(gameState, self.depth, self.index)
     return v[1]
     # END_YOUR_CODE
 
 ######################################################################################
 # Problem 4a (extra credit): creating a better evaluation function
 
+dfs_time = 0
+cc_time = 0
+dis_time = 0
+iters = 0
 def betterEvaluationFunction(currentGameState):
-  """
+    """
     Your extreme, unstoppable evaluation function (problem 4).
 
     DESCRIPTION: <write something here so we know what you did>
-  """
+    """
 
   # BEGIN_YOUR_CODE (our solution is 15 lines of code, but don't worry if you deviate from this)
-  from heapq import heappush, heappop
-  myPos = currentGameState.getPacmanPosition()
-  foods = currentGameState.getFood()
-  walls = currentGameState.getWalls()
-  cost = 0
-  pq = [] 
-  heappush(pq, (0, myPos))
-  diff = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-  leastdis = {myPos: 0}
-  pq_visited=set()
+    # return currentGameState.getScore() # +100 - 20*len(currentGameState.getCapsules())
+    from collections import deque
+    global dfs_time, cc_time, iters, dis_time
+    myPos = currentGameState.getPacmanPosition()
+    foods = currentGameState.getFood()
+    walls = currentGameState.getWalls()
 
-  while len(pq) > 0:
-    pq_cost, pq_start = heappop(pq)
-    if pq_start in pq_visited:
-      continue
-    pq_visited.add(pq_start)
-    cost += pq_cost
-    q = [(pq_start, 0)]
-    q_visited = set()
-    while len(q) > 0:
-      q_start, dis = q[0]
-      q = q[1:]
-      for d in diff:
-        pos = (q_start[0]+d[0], q_start[1]+d[1])
-        if pos[0] <0 or pos[1] < 0 or pos[0] >= foods.width or pos[1] >= foods.height:
-          continue
-        if walls[pos[0]][pos[1]]:
-          continue
-        if pos in q_visited:
-          continue
-        q_visited.add(pos)
-        pos_dis = dis + 1
-        if foods[pos[0]][pos[1]]:
-          if dis < leastdis.get(pos, 10000000):
-              leastdis[pos] = dis
-              heappush(pq, (pos_dis, pos))
-          continue
-        q.append((pos, pos_dis))
-  return 10*len(foods.asList()) - 2*cost  + currentGameState.getScore()
+    w = foods.width
+    h = foods.height
+
+    dpos = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    pos_to_comp = {}
+    comp_to_pos = {}
+    oddy_nodes = {}
+    class Config(object):
+        def __init__(self):
+            self.num_comps=0
+    config = Config()
+
+    def SetIfOddy(x, y, comp_id):
+        if (walls[x-1][y] != walls[x+1][y]) or (walls[x][y-1] != walls[x][y+1]):
+            oddy_nodes[comp_id].add((x, y))
+            return True
+        return False
+        numfoods = 0
+        numwalls = 0
+        for dx, dy in dpos:
+            xi = x+dx
+            yi = y+dy
+            if xi < 0 or xi >= w or yi < 0 or yi >= h:
+                continue
+            if foods[xi][yi]:
+                numfoods += 1
+            if walls[xi][yi]:
+                numwalls +=1
+        if numfoods != 2 or numwalls != 2:
+            oddy_nodes[comp_id].add((xi, yi))
+
+    def assignComponent(x, y, comp_id, maxcnt=100):
+        q= deque()
+        pos_to_comp[(x, y)] = comp_id
+        comp_to_pos[comp_id].add((x, y))
+        SetIfOddy(x, y, comp_id)
+
+        q.append((x, y))
+        while len(q) > 0 and maxcnt > 0:
+            xi, yi = q.popleft()
+            maxcnt -= 1
+            # print xi, yi
+            for dx, dy in dpos:
+                xi2 = xi + dx
+                yi2 = yi + dy
+                if not foods[xi2][yi2]:
+                    continue
+                pos = (xi2, yi2)
+                if pos in pos_to_comp:
+                    continue
+                pos_to_comp[pos] = comp_id
+                comp_to_pos[comp_id].add(pos)
+                if SetIfOddy(xi2, yi2, comp_id):
+                    q.append((xi2, yi2))
+
+
+    def createComponents(start):
+        q = deque()
+        q.append(start)
+        visited = set()
+        while len(q) > 0:
+            x, y = q.popleft()
+            for dx, dy in dpos:
+                xi = x + dx
+                yi = y + dy
+                if (xi, yi) in visited:
+                    continue
+                visited.add((xi, yi))
+                if foods[xi][yi]:
+                    if (xi, yi) not in pos_to_comp:
+                        comp_to_pos[config.num_comps] = set()
+                        oddy_nodes[config.num_comps] = set()
+                        assignComponent(xi, yi, config.num_comps)
+                        config.num_comps += 1
+                    continue
+                if walls[xi][yi]:
+                    continue
+                q.append((xi, yi))
+        return
+
+        for xi in range(w):
+            for yi in range(h):
+                if not foods[xi][yi]:
+                    continue
+                pos = (xi, yi)
+                if pos in pos_to_comp:
+                    continue
+                comp_to_pos[config.num_comps] = set()
+                oddy_nodes[config.num_comps] = set()
+                assignComponent(xi, yi, config.num_comps)
+                config.num_comps += 1
+        # print(config.num_comps)
+
+    def getCompEnds(comp_id):
+        ends = oddy_nodes[comp_id]
+        if len(ends) == 0:
+            return comp_to_pos[comp_id]
+        return ends
+
+    import time
+    cc_stime = time.time()
+    # createComponents(myPos)
+    cc_time += time.time() - cc_stime
+
+    def findDis(starts, ends, _ = False):
+        global dis_time
+        dis_stime = time.time()
+        mindis = 1000000
+        minp = None
+        scnt=0
+        for s in starts:
+            for e in ends:
+                dis = abs(s[0] - e[0]) + abs(s[1] - e[1])
+                if dis < mindis:
+                    mindis = dis
+                    minp = e
+        dis_time += time.time() - dis_stime
+        return (mindis, minp)
+
+    def findDisDFS(starts, ends):
+        q = deque()
+        for s in starts:
+            q.append((s, 0))
+        visited = set()
+        while len(q) > 0:
+            (x, y), dis = q.popleft()
+            dis += 1
+            for dx, dy in dpos:
+                xi = x+dx
+                yi = y+dy
+                pos = (xi, yi)
+                if  pos in visited:
+                    continue
+                if pos in ends:
+                    return dis, pos
+                if walls[xi][yi]:
+                    continue
+                q.append(((xi, yi), dis))
+                visited.add(pos)
+        return 100000, None
+
+
+    def compDFS(starts, taken_comps):
+        if len(taken_comps) == config.num_comps:
+            return 0
+
+        min_cost = float('inf')
+        num_tried = 0
+        disFn = findDisDFS if len(taken_comps) == 0 else findDis
+        for comp_id in range(config.num_comps):
+            if comp_id in taken_comps:
+                continue
+            num_tried += 1
+            if num_tried > 2:
+                break
+            ends = getCompEnds(comp_id)
+            disCost, endPoint = disFn(starts, ends)
+
+            # TODO: maybe remove chosen one from ends 
+
+            # print "disCost", disCost
+            taken_comps.add(comp_id)
+            if len(ends) > 0 and endPoint is not None:
+                ends.remove(endPoint)
+            cost = disCost # + compDFS(ends, taken_comps) # + len(oddy_nodes[comp_id])
+            taken_comps.remove(comp_id)
+            if endPoint is not None:
+                ends.add(endPoint)
+
+            if cost < min_cost:
+                min_cost = cost
+        return min_cost
+
+    def findNearestFood(starts):
+        q = deque()
+        for s in starts:
+            q.append((s, 0))
+        visited = set()
+        while len(q) > 0:
+            (x, y), dis = q.popleft()
+            dis += 1
+            for dx, dy in dpos:
+                xi = x+dx
+                yi = y+dy
+                pos = (xi, yi)
+                if pos in visited or walls[xi][yi]:
+                    continue
+                if foods[xi][yi]:
+                    return dis, pos
+                visited.add(pos)
+                q.append(((xi, yi), dis))
+        return 100000, None
+
+
+    dfs_stime = time.time()
+    # totalCost = compDFS([myPos], set()) + 40*(len(currentGameState.getCapsules()))
+    totalCost = findNearestFood([myPos])[0] + 40*(len(currentGameState.getCapsules()))
+    dfs_time += time.time() - dfs_stime
+    iters += 1
+    # if iters % 10000 == 0:
+        # print dfs_time, cc_time, dis_time
+
+    for agent in currentGameState.data.agentStates:
+        if agent.scaredTimer > 0:
+            agentDis, _ = findDis([myPos], [agent.getPosition()])
+            # print "agent", agent.getPosition(), agentDis, agent.scaredTimer
+            if  agentDis < agent.scaredTimer:
+                totalCost = -50 + agentDis
+                break
+    # print totalCost
+    # print myPos, totalCost, config.num_comps, currentGameState.getScore()
+    # print comp_to_pos
+    # print oddy_nodes
+    return 8*len(foods.asList()) - totalCost + currentGameState.getScore()
+
+
   # END_YOUR_CODE
 
 # Abbreviation
